@@ -1,0 +1,4 @@
+database:
+  prefixes:
+    - dev
+    - test
