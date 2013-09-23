@@ -41,7 +41,6 @@ class Command(LabelCommand):
         self.step_size = options.get('step_size')
 
         print "Clearing data from database"
-        #call_command('flush', interactive=False)
 
         bench_method = getattr(self, "run_{}_benchmark".format(app))
         if not bench_method:
@@ -123,6 +122,7 @@ class Command(LabelCommand):
                 sum(query_times) / len(query_times),
                 sum(processing_times) / len(processing_times),
             ])
+            csv_fh.flush()
             print ("{num_blocks}, {create_time_sql}, "
                    "{create_time_processing}, {query_time_sql}, "
                    "{query_time_processing}").format(
@@ -141,6 +141,7 @@ class Command(LabelCommand):
                         connection.ops.quote_name(table_name)
                     )
                 )
+        csv_fh.close()
 
     def _inject_block_model(self, model_number):
         from django.db import models
