@@ -23,6 +23,9 @@ DATABASES = {
         'PASSWORD': 'devpassword',
         'HOST': 'localhost',
         'PORT': '9932',
+        'OPTIONS': {
+            'autocommit': True,
+        },
     }
 }
 
@@ -124,6 +127,7 @@ THIRD_PARTY_APPS = [
     'debug_toolbar',
     'django_extensions',
     'devserver',
+    'genericm2m',
 ]
 
 PROJECT_APPS = [
