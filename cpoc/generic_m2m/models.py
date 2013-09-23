@@ -52,14 +52,3 @@ class UserBlock(ContentBlock):
 
     def __unicode__(self):
         return "User block for {}".format(self.user.username)
-
-
-for idx in xrange(0, 20):
-    class Meta:
-        app_label = 'generic_m2m'
-    attrs = {
-        'text': models.TextField(),
-        '__module__': 'cpoc.generic_m2m',
-        'Meta': Meta,
-    }
-    type("Test{}Block".format(idx), (ContentBlock,), attrs)
