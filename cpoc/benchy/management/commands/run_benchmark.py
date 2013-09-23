@@ -53,6 +53,8 @@ class Command(LabelCommand):
         self.csv_writer = csv.writer(self.csv_fh)
         header = [
             "blocks",
+            "test start",
+            "test end",
             "create time (SQL)",
             "create time (complete)",
             "query time (SQL)",
@@ -67,6 +69,7 @@ class Command(LabelCommand):
     def run_benchmark(self, app_label):
         # run from 1 to 500 sample block classes
         for num_blocks in xrange(1, self.num_blocks + 1, self.step_size):
+            test_start = time()
             # create all the block models on the models module
             for ib in xrange(num_blocks):
                 self._inject_block_model(app_label, ib)
@@ -80,9 +83,9 @@ class Command(LabelCommand):
                 app_label,
                 num_blocks
             )
-            create_duration = time() - start
+            create_time_processing = time() - start
 
-            sql_time = sum(
+            create_time_sql = sum(
                 [float(q.get('time', 0)) for q in connection.queries]
             )
 
@@ -96,25 +99,33 @@ class Command(LabelCommand):
                 getattr(self, "run_{}_query".format(app_label))(container.id)
                 processing_times.append((time() - start))
 
-                sql_time = sum(
+                query_time_sql = sum(
                     [float(q.get('time', 0)) for q in connection.queries]
                 )
-                query_times.append(sql_time)
+                query_times.append(query_time_sql)
+
+            test_end = time()
 
             self.csv_writer.writerow([
                 num_blocks,
-                sql_time,
-                create_duration,
+                test_start,
+                test_end,
+                create_time_sql,
+                create_time_processing,
                 sum(query_times) / len(query_times),
                 sum(processing_times) / len(processing_times),
             ])
             self.csv_fh.flush()
-            print ("{num_blocks}, {create_time_sql}, "
+            print ("{num_blocks}, "
+                   "{test_start}, {test_end}, "
+                   "{create_time_sql}, "
                    "{create_time_processing}, {query_time_sql}, "
                    "{query_time_processing}").format(
                 num_blocks=num_blocks,
-                create_time_sql=sql_time,
-                create_time_processing=create_duration,
+                test_start=test_start,
+                test_end=test_end,
+                create_time_sql=create_time_sql,
+                create_time_processing=create_time_processing,
                 query_time_sql=sum(query_times) / len(query_times),
                 query_time_processing=sum(processing_times) / len(processing_times),
             )
