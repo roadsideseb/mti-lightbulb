@@ -43,7 +43,7 @@ class Command(LabelCommand):
 
         self.csv_fh = open(
             '{}_{}_{}_benchmark_results.csv'.format(
-                timezone.now(),
+                timezone.now().strftime("%Y-%m-%d--%H-%M"),
                 app_label,
                 connection.vendor
             ),
