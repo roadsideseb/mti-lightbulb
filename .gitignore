@@ -3,4 +3,8 @@
 *.py[co]
 *.sw[pc]
 *.csv
+*.ipynb
+
+.vagrant
+
 local_settings.py
