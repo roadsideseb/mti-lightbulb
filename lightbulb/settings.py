@@ -105,10 +105,10 @@ MIDDLEWARE_CLASSES = (
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
 )
 
-ROOT_URLCONF = 'cpoc.urls'
+ROOT_URLCONF = 'lightbulb.urls'
 
 # Python dotted path to the WSGI application used by Django's runserver.
-WSGI_APPLICATION = 'cpoc.wsgi.application'
+WSGI_APPLICATION = 'lightbulb.wsgi.application'
 
 TEMPLATE_DIRS = (
     root('templates'),
@@ -131,11 +131,11 @@ THIRD_PARTY_APPS = [
 ]
 
 PROJECT_APPS = [
-    'cpoc.multi_table',
-    'cpoc.json_data',
-    'cpoc.generic_m2m',
+    'lightbulb.multi_table',
+    'lightbulb.json_data',
+    'lightbulb.generic_m2m',
 
-    'cpoc.benchy',
+    'lightbulb.benchy',
 ]
 
 INSTALLED_APPS = THIRD_PARTY_APPS + PROJECT_APPS

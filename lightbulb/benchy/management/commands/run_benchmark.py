@@ -153,7 +153,7 @@ class Command(LabelCommand):
 
         attrs = {
             'text': models.TextField(),
-            '__module__': 'cpoc.{}.models'.format(label),
+            '__module__': 'lightbulb.{}.models'.format(label),
             'Meta': Meta,
         }
         class_name = "Text{}Block".format(model_number)
