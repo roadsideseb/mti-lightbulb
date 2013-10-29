@@ -18,6 +18,8 @@ alternative suggestions for MTI. This is most likely not a generic solution and
 it is not trying to be. The structure I used is driven by the project that
 triggered this investigative process: `django-fancypages`_.
 
+.. image:: https://raw.github.com/elbaschid/mti-lightbulb/master/docs/_static/images/plot_mti_vs_generic_m2m.png
+
 I'll provide more details on my approach, the results and how to run the tests
 as I get some more time to work on this...be patient and check back soon...
 
