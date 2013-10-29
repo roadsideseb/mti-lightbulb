@@ -132,8 +132,8 @@ THIRD_PARTY_APPS = [
 
 PROJECT_APPS = [
     'lightbulb.multi_table',
-    'lightbulb.json_data',
     'lightbulb.generic_m2m',
+    #'lightbulb.json_data',
 
     'lightbulb.benchy',
 ]
