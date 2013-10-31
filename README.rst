@@ -2,6 +2,8 @@
 MTI Lightbulb
 =============
 
+.. image:: https://d2weczhvl823v0.cloudfront.net/elbaschid/mti-lightbulb/trend.png
+
 **Disclaimer:** this is a small research project and is currently under
 development so there might be changes at any point in time. It is also not
 complete and there are things that will break. Use with care :)
