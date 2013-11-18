@@ -5,6 +5,9 @@
 *.csv
 *.ipynb
 
-.vagrant
+env.sh
+
+.vagrant/
+.tox/
 
 local_settings.py

@@ -26,7 +26,19 @@ DATABASES = {
         'OPTIONS': {
             'autocommit': True,
         },
-    }
+    },
+    'mysql': {
+        'ENGINE': 'django.db.backends.mysql',
+        'NAME': 'dev_db',
+        'USER': 'dev_app',
+        'PASSWORD': 'devpassword',
+        'HOST': '127.0.0.1',
+        'PORT': '9906',
+    },
+    'sqlite3': {
+        'ENGINE': 'django.db.backends.sqlite3',
+        'NAME': '/tmp/lightbulb.sqlite3',
+    },
 }
 
 # Hosts/domain names that are valid for this site; required if DEBUG is False
@@ -122,16 +134,14 @@ THIRD_PARTY_APPS = [
     'django.contrib.messages',
     'django.contrib.staticfiles',
     'django.contrib.admin',
-
-    'south',
-    'debug_toolbar',
     'django_extensions',
-    'devserver',
     'genericm2m',
+    'polymorphic',
 ]
 
 PROJECT_APPS = [
-    'lightbulb.multi_table',
+    'lightbulb.model_utils_test',
+    'lightbulb.polymorphic_test',
     'lightbulb.generic_m2m',
     #'lightbulb.json_data',
 

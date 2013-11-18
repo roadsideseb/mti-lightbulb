@@ -1,26 +1,38 @@
-import csv
+import os
 
-from time import time
+#from pusher import Pusher
+from time import time, sleep
+from humanize import filesize
 from optparse import make_option
 
 from django.db import models
+from django import get_version
 from django.db import connection
-from django.utils import timezone
 from django.db.models import get_app
-from django.db.models import get_model
-from django.core.management import call_command
-from django.db.models.related import RelatedObject
+from django.db.utils import DatabaseError
 from django.core.management.base import LabelCommand, CommandError
+
+from lightbulb.benchy import runners
+from lightbulb.benchy.models import BenchmarkResult
+
+
+BASEDIR = os.path.join(os.getcwd(), "results")
+DJANGO_VERSION = get_version()
+
+RUNNERS = {
+    'mysql': runners.MysqlRunner,
+    'postgresql': runners.PostgresqlRunner,
+}
 
 
 class Command(LabelCommand):
     num_queries = 100
     option_list = LabelCommand.option_list + (
         make_option(
-            '-b', '--num-blocks',
-            dest='num_blocks',
+            '-b', '--num-models',
+            dest='num_models',
             type=int,
-            default=500,
+            default=200,
             help="Upper boundary for block models to test against"
         ),
         make_option(
@@ -33,185 +45,115 @@ class Command(LabelCommand):
     )
 
     def handle(self, *labels, **options):
+        self.num_models = options.get('num_models')
+        self.step_size = options.get('step_size')
         if not labels:
-            labels = ('multi_table', 'generic_m2m')  # 'json_data')
+            labels = ('model_utils_test', 'generic_m2m', 'polymorphic_test')
         super(Command, self).handle(*labels, **options)
 
     def handle_label(self, app_label, **options):
-        self.num_blocks = options.get('num_blocks')
-        self.step_size = options.get('step_size')
+        runner_class = RUNNERS.get(connection.vendor)
+        if not runner_class:
+            raise CommandError(
+                "No runner for {} available".format(connection.vendor))
 
-        self.csv_fh = open(
-            '{}_{}_{}_benchmark_results.csv'.format(
-                timezone.now().strftime("%Y-%m-%d--%H-%M"),
-                app_label,
-                connection.vendor
-            ),
-            'w'
-        )
+        self.runner = runner_class(app_label)
 
-        self.csv_writer = csv.writer(self.csv_fh)
-        header = [
-            "blocks",
-            "test start",
-            "test end",
-            "create time (SQL)",
-            "create time (complete)",
-            "query time (SQL)",
-            "query time (complete)"
-        ]
-        self.csv_writer.writerow(header)
-        print ', '.join(header)
+        if not os.path.exists(BASEDIR):
+            os.makedirs(BASEDIR)
 
-        self.run_benchmark(app_label)
-        self.csv_fh.close()
+        filename = '{}_{}_Django-{}_benchmark_results.csv'.format(
+            app_label, connection.vendor, DJANGO_VERSION)
+
+        print '-' * 80
+        print 'App:', app_label
+        print 'Django version:', DJANGO_VERSION
+        print 'Database engine:', connection.vendor
+
+        with open(os.path.join(BASEDIR, filename), 'w') as json_fh:
+            self.json_fh = json_fh
+            try:
+                self.run_benchmark(app_label)
+            except DatabaseError as exc:
+                print 'Database error', exc.args[1]
+                self.json_fh.write(
+                    "{{'error': 'Database failed with error: {}'}}".format(
+                        exc.args[1]))
+        print '-' * 80
 
     def run_benchmark(self, app_label):
         # run from 1 to 500 sample block classes
-        for num_blocks in xrange(1, self.num_blocks + 1, self.step_size):
-            test_start = time()
-            # create all the block models on the models module
-            for ib in xrange(num_blocks):
-                self._inject_block_model(app_label, ib)
+        for num_models in xrange(0, self.num_models + 1, self.step_size):
+            # starting at zero makes no sense at all but we want to have
+            # the steps counted in an intuitive manner, so start with 1 here
+            if num_models == 0:
+                num_models = 1
 
-            call_command('syncdb', interactive=False, verbosity=0)
+            self.runner.generate_models(num_models)
+            self.runner.syncdb()
 
-            connection.queries = []
+            bm_result = BenchmarkResult(
+                uuid=self.runner.uuid, name=app_label, num_models=num_models)
+            bm_result.start = time()
 
             start = time()
-            container = self._create_container_and_blocks(
-                app_label,
-                num_blocks
-            )
-            create_time_processing = time() - start
+            container = self.runner.query_wrapper.create_query(
+                app_label, num_models)
 
-            create_time_sql = sum(
+            bm_result.create_time_complete = time() - start
+
+            bm_result.create_time_sql = sum(
                 [float(q.get('time', 0)) for q in connection.queries]
             )
 
             query_times = []
             processing_times = []
+            memory_rss = []
+            memory_vrt = []
             for it in xrange(0, self.num_queries):
                 # clear previously logged queries
                 connection.queries = []
 
+                # reset the value for monitored memory usage
+                self.runner.monitor.reset_values()
+
                 start = time()
-                getattr(self, "run_{}_query".format(app_label))(container.id)
+                self.runner.query_wrapper.select_query(container.id)
+
                 processing_times.append((time() - start))
+
+                rss, vrt = self.runner.monitor.get_memory_values()
+                memory_rss.append(rss)
+                memory_vrt.append(vrt)
 
                 query_time_sql = sum(
                     [float(q.get('time', 0)) for q in connection.queries]
                 )
                 query_times.append(query_time_sql)
 
-            test_end = time()
+            bm_result.end = time()
 
-            self.csv_writer.writerow([
-                num_blocks,
-                test_start,
-                test_end,
-                create_time_sql,
-                create_time_processing,
-                sum(query_times) / len(query_times),
-                sum(processing_times) / len(processing_times),
-            ])
-            self.csv_fh.flush()
-            print ("{num_blocks}, "
-                   "{test_start}, {test_end}, "
-                   "{create_time_sql}, "
-                   "{create_time_processing}, {query_time_sql}, "
-                   "{query_time_processing}").format(
-                num_blocks=num_blocks,
-                test_start=test_start,
-                test_end=test_end,
-                create_time_sql=create_time_sql,
-                create_time_processing=create_time_processing,
-                query_time_sql=sum(query_times) / len(query_times),
-                query_time_processing=sum(processing_times) / len(processing_times),
+            num_queries = len(query_times)
+            bm_result.query_time_sql = sum(query_times) / num_queries
+            bm_result.query_time_complete = sum(processing_times) / num_queries
+
+            bm_result.db_rss = sum(memory_rss) / len(memory_rss)
+            bm_result.db_vrt = sum(memory_vrt) / len(memory_vrt)
+
+            self.json_fh.write("{}\n".format(bm_result.to_json()))
+            self.json_fh.flush()
+
+            print ("{num_models}, {test_duration:.4f} s, "
+                   "{create_time_sql:.4f} s, {create_time_complete:.4f} s, "
+                   "{query_time_sql:.4f} s, {query_time_complete:.4f} s, "
+                   "{db_rss}, {db_vrt}").format(
+                num_models=num_models,
+                test_duration=bm_result.end - bm_result.start,
+                create_time_sql=bm_result.create_time_sql,
+                create_time_complete=bm_result.create_time_complete,
+                query_time_sql=bm_result.query_time_sql,
+                query_time_complete=bm_result.query_time_complete,
+                db_rss=filesize.naturalsize(bm_result.db_rss),
+                db_vrt=filesize.naturalsize(bm_result.db_vrt),
             )
-            self._drop_all_tables()
-
-    def run_multi_table_query(self, container_id):
-        container = get_model('multi_table', 'Container').objects.get(
-            id=container_id
-        )
-        # generate a list here to make sure that the queryset is not
-        # just assembled but also executed!!
-        list(container.blocks.select_subclasses().order_by('display_order'))
-
-    def run_generic_m2m_query(self, container_id):
-        container = get_model('generic_m2m', 'Container').objects.get(
-            id=container_id
-        )
-        list(container.blocks.all().generic_objects())
-
-    def _inject_block_model(self, label, model_number):
-        app_models = get_app(label)
-
-        class Meta:
-            app_label = label
-
-        attrs = {
-            'text': models.TextField(),
-            '__module__': 'lightbulb.{}.models'.format(label),
-            'Meta': Meta,
-        }
-        class_name = "Text{}Block".format(model_number)
-        setattr(
-            app_models,
-            class_name,
-            type(class_name, (app_models.ContentBlock,), attrs)
-        )
-        model_class = getattr(app_models, class_name)
-
-        if not label == 'multi_table':
-            return
-
-        text_field = None
-        for field in model_class._meta.fields:
-            if field.name == 'contentblock_ptr':
-                text_field = field
-                break
-
-        if text_field is None:
-            raise CommandError("cannot find text field on model")
-
-        # this needs to be fixed up so that the generated classes show up
-        # during retrieval of subclasses
-        related = RelatedObject(
-            app_models.ContentBlock,
-            model_class,
-            text_field
-        )
-        app_models.ContentBlock._meta._related_objects_cache[related] = None
-
-    def _drop_all_tables(self):
-        for table_name in connection.introspection.table_names():
-            cursor = connection.cursor()
-            cursor.execute(
-                "DROP TABLE {} CASCADE;".format(
-                    connection.ops.quote_name(table_name)
-                )
-            )
-
-    def _create_container_and_blocks(self, app_label, num_blocks):
-        container = get_model(app_label, 'Container').objects.create(
-            name='Dummy Container',
-        )
-        for idx in xrange(1, num_blocks):
-            klass = getattr(get_app(app_label), "Text{}Block".format(idx))
-            getattr(
-                self,
-                '_create_{}_block'.format(app_label)
-            )(klass, container, idx)
-        return container
-
-    def _create_multi_table_block(self, klass, container, index):
-        klass.objects.create(
-            text="The text of block #{}".format(index),
-            container=container
-        )
-
-    def _create_generic_m2m_block(self, klass, container, index):
-        block = klass.objects.create(text="Text of block #{}".format(index))
-        container.blocks.connect(block)
+            self.runner.drop_all_tables()
