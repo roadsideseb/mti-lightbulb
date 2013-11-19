@@ -1,7 +1,7 @@
 *.log
 *.pot
 *.py[co]
-*.sw[pc]
+*.sw[po]
 *.csv
 *.ipynb
 

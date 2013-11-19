@@ -1,14 +1,15 @@
 import os
+import json
+import logging
 
-#from pusher import Pusher
-from time import time, sleep
+from time import time
 from humanize import filesize
+from firebase import firebase
 from optparse import make_option
+from requests.exceptions import HTTPError
 
-from django.db import models
 from django import get_version
 from django.db import connection
-from django.db.models import get_app
 from django.db.utils import DatabaseError
 from django.core.management.base import LabelCommand, CommandError
 
@@ -23,6 +24,9 @@ RUNNERS = {
     'mysql': runners.MysqlRunner,
     'postgresql': runners.PostgresqlRunner,
 }
+
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger('run_benchmark')
 
 
 class Command(LabelCommand):
@@ -44,7 +48,19 @@ class Command(LabelCommand):
         ),
     )
 
+    def clear_firebase_storage(self):
+        try:
+            self.firebase.delete('/results/{}'.format(self.test_name), None)
+        except HTTPError:
+            pass
+
+    def save_test_result(self, data):
+        url = '/results/{}'.format(self.test_name)
+        self.firebase.post(url, data=dict(data))
+
     def handle(self, *labels, **options):
+        self.firebase = firebase.FirebaseApplication(
+            os.getenv('FIREBASE_URL'), None)
         self.num_models = options.get('num_models')
         self.step_size = options.get('step_size')
         if not labels:
@@ -69,6 +85,11 @@ class Command(LabelCommand):
         print 'App:', app_label
         print 'Django version:', DJANGO_VERSION
         print 'Database engine:', connection.vendor
+        # we have to replace the '.' with '-' because firebase doesn't like
+        # dots in names
+        self.test_name = '{}_{}_{}'.format(
+            app_label, DJANGO_VERSION.replace('.', '-'), connection.vendor)
+        self.clear_firebase_storage()
 
         with open(os.path.join(BASEDIR, filename), 'w') as json_fh:
             self.json_fh = json_fh
@@ -82,6 +103,7 @@ class Command(LabelCommand):
         print '-' * 80
 
     def run_benchmark(self, app_label):
+        logger.info('start running benchmark for {}'.format(app_label))
         # run from 1 to 500 sample block classes
         for num_models in xrange(0, self.num_models + 1, self.step_size):
             # starting at zero makes no sense at all but we want to have
@@ -89,7 +111,9 @@ class Command(LabelCommand):
             if num_models == 0:
                 num_models = 1
 
+            logger.info('generating models')
             self.runner.generate_models(num_models)
+            logger.info('creating tables')
             self.runner.syncdb()
 
             bm_result = BenchmarkResult(
@@ -97,6 +121,7 @@ class Command(LabelCommand):
             bm_result.start = time()
 
             start = time()
+            logger.info('creating models')
             container = self.runner.query_wrapper.create_query(
                 app_label, num_models)
 
@@ -140,8 +165,7 @@ class Command(LabelCommand):
             bm_result.db_rss = sum(memory_rss) / len(memory_rss)
             bm_result.db_vrt = sum(memory_vrt) / len(memory_vrt)
 
-            self.json_fh.write("{}\n".format(bm_result.to_json()))
-            self.json_fh.flush()
+            self.save_test_result(bm_result.to_json())
 
             print ("{num_models}, {test_duration:.4f} s, "
                    "{create_time_sql:.4f} s, {create_time_complete:.4f} s, "
