@@ -4,7 +4,7 @@ import logging
 from requests.exceptions import HTTPError
 
 from firebase import firebase
-from parse_rest import connection, datatypes
+from parse_rest import connection, datatypes, query
 
 logger = logging.getLogger('benchy.storage')
 logging.basicConfig(level=logging.INFO)
@@ -86,4 +86,19 @@ class ParseComBackend(BaseStorageBackend):
 
     def save_result(self, result, **kwargs):
         bm = Benchmark(**result.serializer(result).data)
+        try:
+            obj = query.QueryManager(Benchmark).get(
+                app_label=result.app_label,
+                database_host=result.database_host,
+                database_vendor=result.database_vendor,
+                django_version=result.django_version,
+                num_models=result.num_models,
+            )
+        except query.QueryResourceDoesNotExist:
+            pass
+        except query.QueryResourceMultipleResultsReturned:
+            logger.error('found multiple entries for result')
+            return
+        else:
+            obj.delete()
         bm.save()
