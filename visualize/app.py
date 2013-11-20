@@ -45,8 +45,9 @@ def visualise_file():
 
 @app.route('/')
 def index():
-    metric = request.args.get('metric', 'query_time_sql')
-    return render_template('visualise_file.html', metric=metric)
+    return render_template(
+        'visualise_file.html', parsecom_app_id=os.getenv('PARSECOM_APP_ID'),
+        parsecom_js_key=os.getenv('PARSECOM_JAVASCRIPT_KEY'))
 
 
 if __name__ == '__main__':

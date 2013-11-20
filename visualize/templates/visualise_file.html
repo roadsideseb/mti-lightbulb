@@ -23,10 +23,16 @@ svg {
 {% endblock %}
 
 {% block content %}
-  <div id="canvas" class='with-3d-shadow with-transitions'>
-    <svg style="height: 500px;"></svg>
-  </div>
+<h1>Django ORM performance with MTI</h1>
 
+<div id="canvas" class='with-3d-shadow with-transitions'>
+    <svg style="height: 500px;"></svg>
+</div>
+
+<script>
+    var parseComAppId = '{{ parsecom_app_id }}';
+    var parseComJsKey= '{{ parsecom_js_key}}';
+</script>
 <script src="/static/js/d3.v3.js"></script>
 <script src="/static/js/nv.d3.min.js"></script>
 <script src="//ajax.googleapis.com/ajax/libs/jquery/1.10.2/jquery.min.js"></script>

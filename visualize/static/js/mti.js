@@ -1,10 +1,7 @@
 var api_version = "1";
 
 (function () {
-    Parse.initialize(
-        APP_ID,
-        API_KEY,
-    );
+    Parse.initialize(parseComAppId, parseComJsKey);
 
     var Benchmark = Parse.Object.extend("Benchmark");
     var BenchmarkCollection = Parse.Collection.extend({
