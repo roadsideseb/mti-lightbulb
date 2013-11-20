@@ -13,8 +13,6 @@ var api_version = "1";
             var aggregatedData = {};
             benchmarks.each(function (object) {
                 var bm = object.attributes;
-                console.log('Benchmark:', bm);
-
                 var test_name = bm.app_label + " Django " + bm.django_version + " " + bm.database_vendor;
 
                 if (aggregatedData[test_name] === undefined) {
