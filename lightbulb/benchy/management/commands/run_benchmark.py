@@ -1,24 +1,25 @@
 import os
-import json
 import logging
 
 from time import time
 from humanize import filesize
-from firebase import firebase
 from optparse import make_option
-from requests.exceptions import HTTPError
 
-from django import get_version
 from django.db import connection
-from django.db.utils import DatabaseError
 from django.core.management.base import LabelCommand, CommandError
 
 from lightbulb.benchy import runners
 from lightbulb.benchy.models import BenchmarkResult
-
+from lightbulb.benchy.storage import (FirebaseBackend, FileBackend,
+                                      ParseComBackend)
 
 BASEDIR = os.path.join(os.getcwd(), "results")
-DJANGO_VERSION = get_version()
+
+STORAGE_BACKENDS = {
+    'default': FileBackend,
+    'firebase': FirebaseBackend,
+    'parsecom': ParseComBackend,
+}
 
 RUNNERS = {
     'mysql': runners.MysqlRunner,
@@ -32,6 +33,13 @@ logger = logging.getLogger('run_benchmark')
 class Command(LabelCommand):
     num_queries = 100
     option_list = LabelCommand.option_list + (
+        make_option(
+            '-o', '--output',
+            dest='output',
+            default='default',
+            help="Select storage for test results: {}".format(
+                ', '.join(STORAGE_BACKENDS.keys()))
+        ),
         make_option(
             '-b', '--num-models',
             dest='num_models',
@@ -48,19 +56,13 @@ class Command(LabelCommand):
         ),
     )
 
-    def clear_firebase_storage(self):
-        try:
-            self.firebase.delete('/results/{}'.format(self.test_name), None)
-        except HTTPError:
-            pass
-
-    def save_test_result(self, data):
-        url = '/results/{}'.format(self.test_name)
-        self.firebase.post(url, data=dict(data))
-
     def handle(self, *labels, **options):
-        self.firebase = firebase.FirebaseApplication(
-            os.getenv('FIREBASE_URL'), None)
+        storage_name = options.get('output', 'default')
+        if not storage_name:
+            raise CommandError('Invalid storage backend {}'.format(
+                storage_name))
+        self.storage = STORAGE_BACKENDS.get(storage_name)(base_dir=BASEDIR)
+
         self.num_models = options.get('num_models')
         self.step_size = options.get('step_size')
         if not labels:
@@ -78,29 +80,17 @@ class Command(LabelCommand):
         if not os.path.exists(BASEDIR):
             os.makedirs(BASEDIR)
 
-        filename = '{}_{}_Django-{}_benchmark_results.csv'.format(
-            app_label, connection.vendor, DJANGO_VERSION)
-
         print '-' * 80
         print 'App:', app_label
-        print 'Django version:', DJANGO_VERSION
+        print 'Django version:', self.runner.django_version
         print 'Database engine:', connection.vendor
         # we have to replace the '.' with '-' because firebase doesn't like
         # dots in names
-        self.test_name = '{}_{}_{}'.format(
-            app_label, DJANGO_VERSION.replace('.', '-'), connection.vendor)
-        self.clear_firebase_storage()
-
-        with open(os.path.join(BASEDIR, filename), 'w') as json_fh:
-            self.json_fh = json_fh
-            try:
-                self.run_benchmark(app_label)
-            except DatabaseError as exc:
-                print 'Database error', exc.args[1]
-                self.json_fh.write(
-                    "{{'error': 'Database failed with error: {}'}}".format(
-                        exc.args[1]))
+        self.storage.initialise_storage(self.runner.test_name)
+        self.run_benchmark(app_label)
         print '-' * 80
+
+        self.storage.close_storage()
 
     def run_benchmark(self, app_label):
         logger.info('start running benchmark for {}'.format(app_label))
@@ -117,7 +107,8 @@ class Command(LabelCommand):
             self.runner.syncdb()
 
             bm_result = BenchmarkResult(
-                uuid=self.runner.uuid, name=app_label, num_models=num_models)
+                test_name=self.runner.test_name, app_label=app_label,
+                num_models=num_models)
             bm_result.start = time()
 
             start = time()
@@ -165,7 +156,7 @@ class Command(LabelCommand):
             bm_result.db_rss = sum(memory_rss) / len(memory_rss)
             bm_result.db_vrt = sum(memory_vrt) / len(memory_vrt)
 
-            self.save_test_result(bm_result.to_json())
+            self.storage.save_result(bm_result)
 
             print ("{num_models}, {test_duration:.4f} s, "
                    "{create_time_sql:.4f} s, {create_time_complete:.4f} s, "

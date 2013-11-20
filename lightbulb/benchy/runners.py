@@ -1,6 +1,5 @@
-import shortuuid
-
 from django.db import models
+from django import get_version
 from django.db import connection
 from django.db.models import get_app
 from django.core.management import call_command
@@ -17,13 +16,14 @@ WRAPPERS = {
     'model_utils_test': model_utils_test_qw.QueryWrapper,
 }
 
-
 class AbstractBenchmarkRunner(object):
     PROCESS_FILTER = None
     DROP_TABLE_SQL = None
 
     def __init__(self, app_label):
-        self.uuid = shortuuid.uuid()
+        self.django_version = get_version()
+        self.test_name = '{}_{}_{}'.format(
+            app_label, self.django_version, connection.vendor)
         self.app_label = app_label
 
         query_wrapper = WRAPPERS.get(app_label)
