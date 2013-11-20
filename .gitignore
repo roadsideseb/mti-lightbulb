@@ -6,8 +6,9 @@
 *.ipynb
 
 env.sh
+local_settings.py
 
 .vagrant/
 .tox/
 
-local_settings.py
+results/
