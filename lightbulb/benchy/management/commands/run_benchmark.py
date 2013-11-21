@@ -10,7 +10,6 @@ from django.db.utils import DatabaseError
 from django.core.management.base import LabelCommand, CommandError
 
 from lightbulb.benchy import runners
-from lightbulb.benchy.models import BenchmarkResult
 from lightbulb.benchy.storage import (FirebaseBackend, FileBackend,
                                       ParseComBackend)
 
@@ -114,9 +113,7 @@ class Command(LabelCommand):
             logger.info('creating tables')
             self.runner.syncdb()
 
-            bm_result = BenchmarkResult(
-                test_name=self.runner.test_name, app_label=app_label,
-                num_models=num_models)
+            bm_result = self.runner.create_result(num_models)
             bm_result.start = time()
 
             start = time()

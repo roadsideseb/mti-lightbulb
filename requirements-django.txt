@@ -23,3 +23,4 @@ MySQL-python==1.2.4
 
 git+https://github.com/elbaschid/python-firebase.git#egg=python-firebase-1.1.1
 git+https://github.com/lullis/parse_rest.git#egg=parse_rest-0.2.20130312
+shortuuid==0.4

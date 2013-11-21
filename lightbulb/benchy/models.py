@@ -18,10 +18,10 @@ class BenchmarkResultSerializer(Serializer):
     hostname = fields.String()
 
     class Meta:
-        fields = ('test_id', 'app_label', 'num_models', 'django_version',
-                  'database_vendor', 'database_name', 'database_host',
-                  'hostname', 'start', 'end', 'create_time_sql',
-                  'create_time_complete', 'query_time_sql',
+        fields = ('test_id', 'test_name', 'app_label', 'num_models',
+                  'django_version', 'database_vendor', 'database_name',
+                  'database_host', 'hostname', 'start', 'end',
+                  'create_time_sql', 'create_time_complete', 'query_time_sql',
                   'query_time_complete', 'db_rss', 'db_vrt')
 
 
@@ -29,12 +29,13 @@ class BenchmarkResult(object):
     django_version = DJANGO_VERSION
     serializer = BenchmarkResultSerializer
 
-    def __init__(self, test_name, app_label, num_models):
+    def __init__(self, test_id, test_name, app_label, num_models):
         self.database_vendor = connection.vendor
         self.database_host = connection.settings_dict.get('NAME')
         self.database_host = connection.settings_dict.get('HOST')
         self.hostname = gethostname()
-        self.test_id = '{}_{}'.format(test_name, num_models)
+        self.test_id = test_id
+        self.test_name = test_name
         self.app_label = app_label
         self.num_models = num_models
 

@@ -11,20 +11,21 @@ var api_version = "1";
     benchmarks.fetch({
         success: function (benchmarks) {
             var aggregatedData = {};
+            var idNameMap = {};
             benchmarks.each(function (object) {
                 var bm = object.attributes;
-                var test_name = bm.app_label + " Django " + bm.django_version + " " + bm.database_vendor;
 
-                if (aggregatedData[test_name] === undefined) {
-                    aggregatedData[test_name] = []
+                if (aggregatedData[bm.test_id] === undefined) {
+                    aggregatedData[bm.test_id] = []
                 }
-                aggregatedData[test_name].push({x: bm.num_models, y: bm.query_time_sql});
+                aggregatedData[bm.test_id].push({x: bm.num_models, y: bm.query_time_sql});
+                idNameMap[bm.test_id] = bm.app_label + " Django " + bm.django_version + " " + bm.database_vendor;
             });
 
             var rawData = [];
             $.each(aggregatedData, function(key, values) {
                 rawData.push({
-                    key: key,
+                    key: idNameMap[key],
                     values: values,
                 });
             });

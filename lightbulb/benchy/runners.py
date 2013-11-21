@@ -1,9 +1,12 @@
+import shortuuid
+
 from django.db import models
 from django import get_version
 from django.db import connection
 from django.db.models import get_app
 from django.core.management import call_command
 from django.db.models.related import RelatedObject
+from lightbulb.benchy.models import BenchmarkResult
 
 from .monitors import MemoryMonitor
 from ..generic_m2m import query_wrapper as generic_m2m_qw
@@ -16,12 +19,14 @@ WRAPPERS = {
     'model_utils_test': model_utils_test_qw.QueryWrapper,
 }
 
+
 class AbstractBenchmarkRunner(object):
     PROCESS_FILTER = None
     DROP_TABLE_SQL = None
 
     def __init__(self, app_label):
         self.django_version = get_version()
+        self.test_id = shortuuid.uuid()
         self.test_name = '{}_{}_{}'.format(
             app_label, self.django_version, connection.vendor)
         self.app_label = app_label
@@ -34,6 +39,11 @@ class AbstractBenchmarkRunner(object):
         self.monitor = MemoryMonitor(
             self.get_process_filter(connection.settings_dict))
         self.monitor.start()
+
+    def create_result(self, num_models):
+        return BenchmarkResult(
+            self.test_id, test_name=self.test_name, app_label=self.app_label,
+            num_models=num_models)
 
     def get_process_filter(self, dbsettings):
         return self.PROCESS_FILTER
