@@ -6,6 +6,7 @@ from humanize import filesize
 from optparse import make_option
 
 from django.db import connection
+from django.db.utils import DatabaseError
 from django.core.management.base import LabelCommand, CommandError
 
 from lightbulb.benchy import runners
@@ -87,7 +88,14 @@ class Command(LabelCommand):
         # we have to replace the '.' with '-' because firebase doesn't like
         # dots in names
         self.storage.initialise_storage(self.runner.test_name)
-        self.run_benchmark(app_label)
+
+        try:
+            self.run_benchmark(app_label)
+        except DatabaseError as exc:
+            logger.error('error querying the database: {}'.format(
+                exc.args[1]), exc_info=1)
+            pass
+
         print '-' * 80
 
         self.storage.close_storage()
@@ -113,6 +121,7 @@ class Command(LabelCommand):
 
             start = time()
             logger.info('creating models')
+
             container = self.runner.query_wrapper.create_query(
                 app_label, num_models)
 
