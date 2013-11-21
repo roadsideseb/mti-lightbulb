@@ -92,7 +92,7 @@ class Command(LabelCommand):
             self.run_benchmark(app_label)
         except DatabaseError as exc:
             logger.error('error querying the database: {}'.format(
-                exc.args[1]), exc_info=1)
+                exc.args), exc_info=1)
             pass
 
         print '-' * 80
