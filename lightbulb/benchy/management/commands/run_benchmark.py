@@ -5,8 +5,8 @@ from time import time
 from humanize import filesize
 from optparse import make_option
 
-from django.db import connection
-from django.db.utils import DatabaseError
+from django.db import connection, transaction
+from django.db.utils import DatabaseError, IntegrityError
 from django.core.management.base import LabelCommand, CommandError
 
 from lightbulb.benchy import runners
@@ -93,7 +93,14 @@ class Command(LabelCommand):
         except DatabaseError as exc:
             logger.error('error querying the database: {}'.format(
                 exc.args), exc_info=1)
-            pass
+            bm_failure = self.runner.create_failure(exc)
+            self.storage.save_result(bm_failure)
+        except IntegrityError:
+            logger.error('integrity error in DB {}, trying to rollback'.format(
+                exc.args), exc_info=1)
+            bm_failure = self.runner.create_failure(exc)
+            self.storage.save_result(bm_failure)
+            transaction.rollback()
 
         print '-' * 80
 

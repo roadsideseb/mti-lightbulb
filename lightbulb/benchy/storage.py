@@ -77,7 +77,15 @@ class Benchmark(datatypes.Object):
     pass
 
 
+class Failure(datatypes.Object):
+    pass
+
+
 class ParseComBackend(BaseStorageBackend):
+    CLASS_MAPPING = {
+        'BenchmarkResult': Benchmark,
+        'Failure': Failure,
+    }
 
     def __init__(self, base_dir=None, **kwargs):
         logger.info('using the parse.com backend')
@@ -85,20 +93,7 @@ class ParseComBackend(BaseStorageBackend):
                             rest_key=os.getenv('PARSECOM_REST_API_KEY'))
 
     def save_result(self, result, **kwargs):
-        bm = Benchmark(**result.serializer(result).data)
-        try:
-            obj = query.QueryManager(Benchmark).get(
-                app_label=result.app_label,
-                database_host=result.database_host,
-                database_vendor=result.database_vendor,
-                django_version=result.django_version,
-                num_models=result.num_models,
-            )
-        except query.QueryResourceDoesNotExist:
-            pass
-        except query.QueryResourceMultipleResultsReturned:
-            logger.error('found multiple entries for result')
-            return
-        else:
-            obj.delete()
-        bm.save()
+        parse_class = self.CLASS_MAPPING.get(result.__class__.__name__)
+        if parse_class:
+            bm = parse_class(**result.serializer(result).data)
+            bm.save()

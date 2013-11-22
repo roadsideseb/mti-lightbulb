@@ -6,7 +6,7 @@ from django.db import connection
 from django.db.models import get_app
 from django.core.management import call_command
 from django.db.models.related import RelatedObject
-from lightbulb.benchy.models import BenchmarkResult
+from lightbulb.benchy.models import BenchmarkResult, Failure
 
 from .monitors import MemoryMonitor
 from ..generic_m2m import query_wrapper as generic_m2m_qw
@@ -44,6 +44,11 @@ class AbstractBenchmarkRunner(object):
         return BenchmarkResult(
             self.test_id, test_name=self.test_name, app_label=self.app_label,
             num_models=num_models)
+
+    def create_failure(self, exc):
+        return Failure(
+            self.test_id, test_name=self.test_name, app_label=self.app_label,
+            exc=exc)
 
     def get_process_filter(self, dbsettings):
         return self.PROCESS_FILTER
