@@ -1,0 +1,185 @@
+{% extends "base.html" %}
+
+{% block head %}
+<link href="/static/css/nv.d3.min.css" rel="stylesheet" type="text/css">
+<style>
+body {
+  overflow-y:scroll;
+}
+text {
+  font: 12px sans-serif;
+}
+
+svg {
+  height: 300px;
+  min-width: 100px;
+  min-height: 300px;
+  overflow-hidden: none;
+/*
+Minimum height and width is a good idea to prevent negative SVG dimensions...
+For example width should be =< margin.left + margin.right + 1,
+of course 1 pixel for the entire chart would not be very useful, BUT should not have errors
+*/
+}
+h1,h2,h3,h4,h5 {
+    text-align: center;
+}
+</style>
+{% endblock %}
+
+{% block content %}
+    <div class='container'>
+        <div class='row'>
+            <h1>
+                Django ORM performance with MTI
+                <button class="btn btn-lg" data-toggle="modal" data-target="#graph-explained">
+                    What the graph?
+                </button>
+            </h1>
+        </div>
+        <div class="row well well-danger">
+            This is an opinionated look at Django's ORM performance with
+            multi-table inheritance (MTI). I've not changed the default settings
+            or optimised in any way. Please don't consider the performance shown
+            as absolute, values can vary between test runs due to network
+            fluctuation and latency. They are only used for comparison purposes.
+
+            Any constructive feedback or suggestion? You find me as
+            <a href="https://twitter.com/elbaschid">@elbaschid</a> on Twitter or
+            look up the code for these tests on
+            <a href="https://github.com/elbaschid/mti-lightbulb">github</a>.
+            Improvements to this sites and the documentation on github are going
+            to come in small chunks as I get time to continue work on this.
+        </div>
+    </div>
+
+    <div class="modal fade" id="graph-explained" tabindex="-1" role="dialog" aria-labelledby="graphExplained" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+        <div class="modal-header">
+            <button type="button" class="close" data-dismiss="modal" aria-hidden="true">&times;</button>
+            <h4 class="modal-title" id="graphExplained">
+                Testing Django's ORM
+            </h4>
+        </div>
+        <div class="modal-body">
+            <h4>The scenario</h4>
+            <p>
+                The scenario that I've been looking into is a CMS-style setup where I have the
+                concept of a <em>container</em> that holds an arbitrary number of elements inside,
+                let's call them <em>block</em>. Both concepts are essentially Django models. To
+                be able to define various types of blocks, using inheritance seems obvious from a
+                object-oriented point of view. But everybody says that the result - <em>multi-table
+                inheritance</em> - is bad. So I wanted to know <strong>how bad</strong>. I've looked
+                into three Django apps, that help with MTI:
+                <ul>
+                    <li><a href="">django-model-utils</a></li>
+                    <li><a href="">django-polymorphic</a></li>
+                    <li><a href="">django-generic-m2m</a></li>
+                </ul>
+
+                Each of these is then run on three different versions of Django
+                to investigate the differences between the ORM in these version.
+                I've been especially curious since I've seen some jaw-dropping 
+                performance increases after upgrading to Django 1.6 as proudly
+                presented by FunkyBob at
+                <a href="http://melbdjango.com/">MelbDjango 0.7</a>. The versions
+                I am currently testing against are:
+                <ul>
+                    <li>Django 1.4.10</li>
+                    <li>Django 1.5.5</li>
+                    <li>Django 1.6</li>
+                </ul>
+                An then there's obviously the different databases: PostgreSQL and
+                MySQL. The exact details for those are below.
+            </p>
+            <h4>The tests</h4>
+            <p>
+                The tests I am running generate an increasing number of block models ranging from 
+                <strong>1 to 50 in steps of 5</strong>. The generated models are injected into
+                the app's <code>models.py</code> and related to the container model. I
+                then create the tables in the database and run the same simple query against the
+                container. The query is executed 50 times and the query duration reported by Django
+                averaged to give the values provided here. <em>A more detailed explanation will
+                follow.</em>
+            </p>
+            <h4>The Code</h4>
+            <p>
+                The code for the management command and helpers I am using are available
+                on <a href="https://github.com/elbaschid/mti-lightbulb"> github</a>.
+                I'm using a combination of <em>tox</em> and
+                <em>Django</em> management commands to run test against these versions
+                of Django:
+            </p>
+            <h4>The setup</h4>
+            <p>
+                I am running the tests on a <strong>micro</strong> instance of
+                Amazon's EC2 with Amazon's RDS service for MySQL and PostgreSQL
+                (yeah for Postgres on RDS). All three are in the same region
+                (<em>ap-southeast-2</em>). The RDS instances for are MySQL and
+                PostgreSQL using the following spec:
+            </p>
+
+            <table class="table table-striped table-bordered">
+                <tr>
+                    <th></th>
+                    <th>PostgreSQL</th>
+                    <th>MySQL</th>
+                </tr>
+                <tr>
+                    <th>Version</th>
+                    <td>5.6.13</td>
+                    <td>9.3.1</td>
+                </tr>
+                <tr>
+                    <th>Size</th>
+                    <td>db.m1.medium</td>
+                    <td>db.m1.medium</td>
+                </tr>
+                <tr>
+                    <th>Storage</th>
+                    <td>5GB</td>
+                    <td>5GB</td>
+                </tr>
+            </table>
+        </div>
+        <div class="modal-footer">
+            <button type="button" class="btn btn-default" data-dismiss="modal">Close</button>
+        </div>
+        </div>
+    </div>
+    </div>
+
+    {%  with section_title="django-model-utils", app_label="model_utils_test" %}
+        {% include "partials/graph_section.html" %}
+    {% endwith %}
+
+    {%  with section_title="django-polymorphic", app_label="polymorphic_test" %}
+        {% include "partials/graph_section.html" %}
+    {% endwith %}
+
+    {%  with section_title="django-generic-m2m", app_label="generic_m2m" %}
+        {% include "partials/graph_section.html" %}
+    {% endwith %}
+
+    <script>
+        var parseComAppId = '{{ parsecom_app_id }}';
+        var parseComJsKey= '{{ parsecom_js_key}}';
+    </script>
+    <script src="/static/js/d3.v3.js"></script>
+    <script src="/static/js/nv.d3.js"></script>
+    <script src="/static/js/jquery.min.js"></script>
+    <script src="/static/js/bootstrap.min.js"></script>
+    <script src="/static/js/underscore-min.js"></script>
+    <script src="/static/js/backbone-min.js"></script>
+    <script src="/static/js/parse-1.2.13.min.js" type="text/javascript"></script>
+    {#
+    <script src="//ajax.googleapis.com/ajax/libs/jquery/1.10.2/jquery.min.js"></script>
+    <script src="//netdna.bootstrapcdn.com/bootstrap/3.0.2/js/bootstrap.min.js"></script>
+    <script src="http://documentcloud.github.com/underscore/underscore-min.js"></script>
+    <script src="http://documentcloud.github.com/backbone/backbone-min.js"></script>
+    <script src="http://www.parsecdn.com/js/parse-1.2.13.min.js" type="text/javascript"></script>
+    #}
+    <script src="/static/js/multiBarChart.js"></script>
+    <script src="/static/js/mti.js"></script>
+{% endblock %}

@@ -13,7 +13,6 @@ PROJECT_DIR = os.path.abspath(os.path.dirname(__file__))
 RESULTS_DIR = os.path.join(PROJECT_DIR, '../results')
 
 
-@app.route('/result')
 def visualise_file():
     versions = request.args.getlist('version') or ['1.4.10', '1.5.5', '1.6']
     db_vendors = request.args.getlist('vendor') or [
@@ -45,9 +44,11 @@ def visualise_file():
 
 @app.route('/')
 def index():
+    hostname = request.args.get('host', 'mti')
     return render_template(
-        'visualise_file.html', parsecom_app_id=os.getenv('PARSECOM_APP_ID'),
-        parsecom_js_key=os.getenv('PARSECOM_JAVASCRIPT_KEY'))
+        'graph.html', parsecom_app_id=os.getenv('PARSECOM_APP_ID'),
+        parsecom_js_key=os.getenv('PARSECOM_JAVASCRIPT_KEY'),
+        hostname=hostname)
 
 
 if __name__ == '__main__':
