@@ -44,11 +44,9 @@ def visualise_file():
 
 @app.route('/')
 def index():
-    hostname = request.args.get('host', 'mti')
     return render_template(
         'graph.html', parsecom_app_id=os.getenv('PARSECOM_APP_ID'),
-        parsecom_js_key=os.getenv('PARSECOM_JAVASCRIPT_KEY'),
-        hostname=hostname)
+        parsecom_js_key=os.getenv('PARSECOM_JAVASCRIPT_KEY'))
 
 
 if __name__ == '__main__':

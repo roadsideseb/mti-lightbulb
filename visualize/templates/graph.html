@@ -3,164 +3,270 @@
 {% block head %}
 <link href="/static/css/nv.d3.min.css" rel="stylesheet" type="text/css">
 <style>
-body {
-  overflow-y:scroll;
-}
-text {
-  font: 12px sans-serif;
-}
-
 svg {
   height: 300px;
   min-width: 100px;
   min-height: 300px;
   overflow-hidden: none;
-/*
-Minimum height and width is a good idea to prevent negative SVG dimensions...
-For example width should be =< margin.left + margin.right + 1,
-of course 1 pixel for the entire chart would not be very useful, BUT should not have errors
-*/
 }
-h1,h2,h3,h4,h5 {
+.app-graph h2,
+.app-graph h3,
+table td,th {
     text-align: center;
 }
 </style>
 {% endblock %}
 
 {% block content %}
-    <div class='container'>
-        <div class='row'>
-            <h1>
-                Django ORM performance with MTI
-                <button class="btn btn-lg" data-toggle="modal" data-target="#graph-explained">
-                    What the graph?
-                </button>
-            </h1>
-        </div>
-        <div class="row well well-danger">
-            This is an opinionated look at Django's ORM performance with
-            multi-table inheritance (MTI). I've not changed the default settings
-            or optimised in any way. Please don't consider the performance shown
-            as absolute, values can vary between test runs due to network
-            fluctuation and latency. They are only used for comparison purposes.
+<div class='container'>
+    <div class="row">
+        <div class="col-md-12">
+            <div class="page-header">
+                <h1>Django's ORM and multi-table inheritance (MTI)</h1>
+            </div>
 
-            Any constructive feedback or suggestion? You find me as
-            <a href="https://twitter.com/elbaschid">@elbaschid</a> on Twitter or
-            look up the code for these tests on
-            <a href="https://github.com/elbaschid/mti-lightbulb">github</a>.
-            Improvements to this sites and the documentation on github are going
-            to come in small chunks as I get time to continue work on this.
+            <div class="lead">
+                Django's ORM is a great abstraction layer to work with
+                relational databases using object-oriented programming (OOP).
+
+
+
+                In object-oriented programming, inheritance is frequently used
+                to model relationships between objects. It's a straight-forward
+                concept and makes a lot of sense (most of the time). Django's
+                ORM maps relational database tables to Python objects, the 
+                <code>Model</code>
+                This is an opinionated look at Django's ORM performance when
+                using multi-table inheritance (MTI) using different approaches.
+            </div>
         </div>
     </div>
 
-    <div class="modal fade" id="graph-explained" tabindex="-1" role="dialog" aria-labelledby="graphExplained" aria-hidden="true">
-    <div class="modal-dialog">
-        <div class="modal-content">
-        <div class="modal-header">
-            <button type="button" class="close" data-dismiss="modal" aria-hidden="true">&times;</button>
-            <h4 class="modal-title" id="graphExplained">
-                Testing Django's ORM
-            </h4>
-        </div>
-        <div class="modal-body">
-            <h4>The scenario</h4>
+    <div class="row">
+        <div class="col-md-12">
+            <h2>Something something</h2>
             <p>
-                The scenario that I've been looking into is a CMS-style setup where I have the
-                concept of a <em>container</em> that holds an arbitrary number of elements inside,
-                let's call them <em>block</em>. Both concepts are essentially Django models. To
-                be able to define various types of blocks, using inheritance seems obvious from a
-                object-oriented point of view. But everybody says that the result - <em>multi-table
-                inheritance</em> - is bad. So I wanted to know <strong>how bad</strong>. I've looked
-                into three Django apps, that help with MTI:
-                <ul>
-                    <li><a href="">django-model-utils</a></li>
-                    <li><a href="">django-polymorphic</a></li>
-                    <li><a href="">django-generic-m2m</a></li>
-                </ul>
+                Any constructive feedback or suggestion? You find me as
+                <a href="https://twitter.com/elbaschid">@elbaschid</a> on Twitter or
+                look up the code for these tests on
+                <a href="https://github.com/elbaschid/mti-lightbulb">github</a>.
+                Improvements to this sites and the documentation on github are going
+                to come in small chunks as I get time to continue work on this.
+            </p>
+        </div>
+    </div>
 
+    <div class="row">
+        <div class="col-md-4">
+            <h2>Why</h2>
+            <p>
+                I've been working on
+                <a href="https://github.com/tangentlabs/django-fancypages">
+                    a project</a> over the last few months that adds limited
+                CMS-style capabilities to a Django project. It's conceptually
+                very simple and consists of two main objecst: a <em>block</em>
+                of editable content, such as a title and text, and a
+                <em>container</em> that holds an arbitrary number of these
+                blocks. Both are essentially Django models.
+            </p>
+            <p>
+                Handling the relationship between various types of those blocks
+                and their container was simple enough from a OOP point of view
+                and looked like this:
+
+<pre><code>class Container(models.Model):
+    pass
+
+class ContentBlock(models.Model):
+    container = models.ForeignKey(Container)
+
+class TextBlock(ContentBlock):
+    text = models.TextField()
+
+class ImageBlock(ContentBlock):
+    image = models.ImageField(upload_to='images')
+</code></pre>
+
+                Using the ORM, this results in <em>multi-table inheritance
+                    (MTI)</em> and if you ask around, everyone will tell you:
+
+                <blockquote>
+                    <p>Don't use MTI, it's really bad</p>
+                    <small>everyone</small>
+                </blockquote>
+
+                Being naive and stubborn, I ignored everyone and used it anyway
+                but had two questions lingering in my head:
+                <ol>
+                    <li>Why is it bad?</li>
+                    <li>How bad is it?</li>
+                </ol>
+                So I decided to figure out how bad MTI is in my specific
+                scenario to figure out <strong>how</strong> foolish I've been.
+            </p>
+        </div>
+
+        <div class="col-md-4">
+            <h2>What</h2>
+            <p>
+                There are several packages available for Django that make
+                dealing with MTI easier, e.g. getting a queryset containing
+                subclasses. I've looked at the following three:
+                <ul>
+                    <li>
+                        <a href="https://github.com/carljm/django-model-utils">
+                            django-model-utils
+                        </a>
+                    </li>
+                    <li>
+                        <a href="https://github.com/chrisglass/django_polymorphic">
+                            django-polymorphic
+                        </a>
+                    </li>
+                    <li>
+                        <a href="https://github.com/coleifer/django-generic-m2m">
+                            django-generic-m2m
+                        </a>
+                    </li>
+                </ul>
+                <em>django-model-utils</em> and <em>django-polymorphic</em> use
+                slightly different approaches to how they implement MTI and
+                query the database. The third one, <em>django-generic-m2m</em>,
+                is technically not using MTI but it tries to work around the
+                limitations of MTI by avoiding the nasty
+                <code>LEFT INNER JOIN</code> in SQL. I've included it as an
+                alternative approach.
+            </p>
+            <p>
                 Each of these is then run on three different versions of Django
                 to investigate the differences between the ORM in these version.
                 I've been especially curious since I've seen some jaw-dropping 
                 performance increases after upgrading to Django 1.6 as proudly
                 presented by FunkyBob at
-                <a href="http://melbdjango.com/">MelbDjango 0.7</a>. The versions
-                I am currently testing against are:
+                <a href="http://melbdjango.com/">MelbDjango 0.7</a>.
+                The versions I am currently testing against are:
                 <ul>
                     <li>Django 1.4.10</li>
                     <li>Django 1.5.5</li>
                     <li>Django 1.6</li>
                 </ul>
+            </p>
+            <p>
                 An then there's obviously the different databases: PostgreSQL and
                 MySQL. The exact details for those are below.
             </p>
-            <h4>The tests</h4>
-            <p>
-                The tests I am running generate an increasing number of block models ranging from 
-                <strong>1 to 50 in steps of 5</strong>. The generated models are injected into
-                the app's <code>models.py</code> and related to the container model. I
-                then create the tables in the database and run the same simple query against the
-                container. The query is executed 50 times and the query duration reported by Django
-                averaged to give the values provided here. <em>A more detailed explanation will
-                follow.</em>
-            </p>
-            <h4>The Code</h4>
+        </div>
+
+        <div class="col-md-4">
+            <h2>How</h2>
             <p>
                 The code for the management command and helpers I am using are available
                 on <a href="https://github.com/elbaschid/mti-lightbulb"> github</a>.
                 I'm using a combination of <em>tox</em> and
-                <em>Django</em> management commands to run test against these versions
-                of Django:
+                <em>Django</em> management commands to run test against the
+                Django version mentioned above.
             </p>
-            <h4>The setup</h4>
             <p>
-                I am running the tests on a <strong>micro</strong> instance of
-                Amazon's EC2 with Amazon's RDS service for MySQL and PostgreSQL
-                (yeah for Postgres on RDS). All three are in the same region
-                (<em>ap-southeast-2</em>). The RDS instances for are MySQL and
-                PostgreSQL using the following spec:
+                I am running the tests on a <strong>2 GB</strong> droplet on 
+                <a href="http://www.digitalocean.com">Digital Ocean</a> with
+                the MySQL and PostgreSQL databases running on the same host. 
             </p>
 
             <table class="table table-striped table-bordered">
                 <tr>
-                    <th></th>
-                    <th>PostgreSQL</th>
-                    <th>MySQL</th>
+                    <th></th><th>PostgreSQL</th> <th>MySQL</th>
                 </tr>
                 <tr>
-                    <th>Version</th>
-                    <td>5.6.13</td>
-                    <td>9.3.1</td>
+                    <th>Version</th><td>5.5.34</td><td>9.3.1</td>
                 </tr>
                 <tr>
-                    <th>Size</th>
-                    <td>db.m1.medium</td>
-                    <td>db.m1.medium</td>
+                    <th>CPU</th><td colspan='2'>2 Cores</td>
                 </tr>
                 <tr>
-                    <th>Storage</th>
-                    <td>5GB</td>
-                    <td>5GB</td>
+                    <th>Memory</th><td colspan='2'>2 GB</td>
+                </tr>
+                <tr>
+                    <th>Disk Space</th><td colspan='2'>40 GB SSD</td>
                 </tr>
             </table>
         </div>
-        <div class="modal-footer">
-            <button type="button" class="btn btn-default" data-dismiss="modal">Close</button>
+    </div>
+</div>
+
+{%  with section_title="django-model-utils", app_label="model_utils_test" %}
+<div class="container app-graph">
+    <div class="row">
+        <h2>{{ section_title }}</h2>
+        <div class="col-md-6 chart">
+            <div id="left-{{ app_label }}-canvas" class="mti-chart" data-app='{{ app_label }}'
+                 data-vendor='mysql' class='with-3d-shadow with-transitions'>
+                <h3>Mysql 5.5.34</h3>
+                <div class="alert alert-warning">
+                    Failed at 25 models for Django 1.4.10 &amp; 1.5.5 and at 60
+                    for Django 1.6 due to the maximum of 61 tables allowed in a
+                    join.
+                </div>
+                <svg></svg>
+            </div>
         </div>
+        <div class="col-md-6 chart">
+            <div id="right-{{ app_label }}-canvas" class="mti-chart" data-app='{{ app_label }}'
+                 data-vendor='postgresql' class='with-3d-shadow with-transitions'>
+                <h3>PostgreSQL 9.3.1</h3>
+                <div class="alert alert-warning">
+                    Failed when running a query with 90+ models using MTI due
+                    to the maximum number of columns allowed in PostgreSQL.
+                </div>
+                <svg></svg>
+            </div>
         </div>
     </div>
+</div>
+{% endwith %}
+
+{%  with section_title="django-polymorphic", app_label="polymorphic_test" %}
+<div class="container app-graph">
+    <div class="row">
+        <h2>{{ section_title }}</h2>
+        <div class="col-md-6 chart">
+            <div id="left-{{ app_label }}-canvas" class="mti-chart" data-app='{{ app_label }}'
+                 data-vendor='mysql' class='with-3d-shadow with-transitions'>
+                <h3>Mysql 5.5.34</h3>
+                <svg></svg>
+            </div>
+        </div>
+        <div class="col-md-6 chart">
+            <div id="right-{{ app_label }}-canvas" class="mti-chart" data-app='{{ app_label }}'
+                 data-vendor='postgresql' class='with-3d-shadow with-transitions'>
+                <h3>PostgreSQL 9.3.1</h3>
+                <svg></svg>
+            </div>
+        </div>
     </div>
+</div>
+{% endwith %}
 
-    {%  with section_title="django-model-utils", app_label="model_utils_test" %}
-        {% include "partials/graph_section.html" %}
-    {% endwith %}
-
-    {%  with section_title="django-polymorphic", app_label="polymorphic_test" %}
-        {% include "partials/graph_section.html" %}
-    {% endwith %}
-
-    {%  with section_title="django-generic-m2m", app_label="generic_m2m" %}
-        {% include "partials/graph_section.html" %}
-    {% endwith %}
+{%  with section_title="django-generic-m2m", app_label="generic_m2m" %}
+<div class="container app-graph">
+    <div class="row">
+        <h2>{{ section_title }}</h2>
+        <div class="col-md-6 chart">
+            <div id="left-{{ app_label }}-canvas" class="mti-chart" data-app='{{ app_label }}'
+                 data-vendor='mysql' class='with-3d-shadow with-transitions'>
+                <h3>Mysql 5.5.34</h3>
+                <svg></svg>
+            </div>
+        </div>
+        <div class="col-md-6 chart">
+            <div id="right-{{ app_label }}-canvas" class="mti-chart" data-app='{{ app_label }}'
+                 data-vendor='postgresql' class='with-3d-shadow with-transitions'>
+                <h3>PostgreSQL 9.3.1</h3>
+                <svg></svg>
+            </div>
+        </div>
+    </div>
+</div>
+{% endwith %}
 
     <script>
         var parseComAppId = '{{ parsecom_app_id }}';
@@ -180,6 +286,5 @@ h1,h2,h3,h4,h5 {
     <script src="http://documentcloud.github.com/backbone/backbone-min.js"></script>
     <script src="http://www.parsecdn.com/js/parse-1.2.13.min.js" type="text/javascript"></script>
     #}
-    <script src="/static/js/multiBarChart.js"></script>
     <script src="/static/js/mti.js"></script>
 {% endblock %}

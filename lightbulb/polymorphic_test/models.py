@@ -3,8 +3,6 @@ from django.template.defaultfilters import slugify
 
 from polymorphic import PolymorphicModel
 
-from model_utils.managers import InheritanceManager
-
 
 class Container(models.Model):
     name = models.CharField(max_length=200)
@@ -21,8 +19,6 @@ class Container(models.Model):
 class ContentBlock(PolymorphicModel):
     container = models.ForeignKey('Container', related_name="blocks")
     display_order = models.PositiveIntegerField()
-
-    objects = InheritanceManager()
 
     def save(self, *args, **kwargs):
         if self.display_order is None:
